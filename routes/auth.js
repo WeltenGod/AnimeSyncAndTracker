@@ -3,8 +3,17 @@ const axios = require('axios');
 const router = express.Router();
 const db = require('../database');
 
+// Helper to check login
+const requireLoginRedirect = (req, res, next) => {
+    if (req.session && req.session.user) {
+        next();
+    } else {
+        res.redirect('/login');
+    }
+};
+
 // 1. Redirect to AniList
-router.get('/anilist', (req, res) => {
+router.get('/anilist', requireLoginRedirect, (req, res) => {
     const clientId = process.env.ANILIST_CLIENT_ID;
     const redirectUri = process.env.ANILIST_REDIRECT_URI;
 

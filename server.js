@@ -26,11 +26,57 @@ app.use(session({
     saveUninitialized: false
 }));
 
+// Make session available to templates
+app.use((req, res, next) => {
+    res.locals.user = req.session.user;
+    next();
+});
+
 const axios = require('axios');
+
+const requireLogin = (req, res, next) => {
+    if (req.session.user) {
+        next();
+    } else {
+        res.status(401).json({ error: 'Unauthorized. Please login first.' });
+    }
+};
+
+const requireLoginRedirect = (req, res, next) => {
+    if (req.session.user) {
+        next();
+    } else {
+        res.redirect('/login');
+    }
+};
 
 // Routes
 app.use('/auth', authRoutes);
 app.use('/comparator', comparatorRoutes);
+
+// Auth Routes
+app.get('/login', (req, res) => {
+    const successMsg = req.query.success;
+    const errorMsg = req.query.error;
+    res.render('login', { successMsg, errorMsg });
+});
+
+app.post('/login', (req, res) => {
+    const { password } = req.body;
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin';
+    if (password === adminPassword) {
+        req.session.user = { loggedIn: true };
+        res.redirect('/?success=Logged in successfully');
+    } else {
+        res.redirect('/login?error=Invalid password');
+    }
+});
+
+app.get('/logout', (req, res) => {
+    req.session.destroy();
+    res.redirect('/?success=Logged out successfully');
+});
+
 
 // API Routes
 app.get('/api/search', async (req, res) => {
@@ -143,7 +189,7 @@ app.get('/api/progress', async (req, res) => {
     res.json({ results });
 });
 
-app.post('/api/sync', async (req, res) => {
+app.post('/api/sync', requireLogin, async (req, res) => {
     const { animeId, episode, userIds } = req.body;
 
     if (!animeId || !episode || !userIds || !Array.isArray(userIds) || userIds.length === 0) {
@@ -244,14 +290,15 @@ app.get('/settings', (req, res) => {
         SESSION_SECRET: envData.SESSION_SECRET || process.env.SESSION_SECRET || '',
         ANILIST_CLIENT_ID: envData.ANILIST_CLIENT_ID || process.env.ANILIST_CLIENT_ID || '',
         ANILIST_CLIENT_SECRET: envData.ANILIST_CLIENT_SECRET || process.env.ANILIST_CLIENT_SECRET || '',
-        ANILIST_REDIRECT_URI: envData.ANILIST_REDIRECT_URI || process.env.ANILIST_REDIRECT_URI || ''
+        ANILIST_REDIRECT_URI: envData.ANILIST_REDIRECT_URI || process.env.ANILIST_REDIRECT_URI || '',
+        ADMIN_PASSWORD: envData.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'admin'
     };
 
     res.render('settings', { successMsg, errorMsg, env });
 });
 
-app.post('/api/settings', (req, res) => {
-    const { PORT, SESSION_SECRET, ANILIST_CLIENT_ID, ANILIST_CLIENT_SECRET, ANILIST_REDIRECT_URI } = req.body;
+app.post('/api/settings', requireLogin, (req, res) => {
+    const { PORT, SESSION_SECRET, ANILIST_CLIENT_ID, ANILIST_CLIENT_SECRET, ANILIST_REDIRECT_URI, ADMIN_PASSWORD } = req.body;
 
     if (!PORT || !SESSION_SECRET || !ANILIST_CLIENT_ID || !ANILIST_CLIENT_SECRET || !ANILIST_REDIRECT_URI) {
         return res.status(400).json({ error: 'All fields are required' });
@@ -263,6 +310,7 @@ SESSION_SECRET=${SESSION_SECRET}
 ANILIST_CLIENT_ID=${ANILIST_CLIENT_ID}
 ANILIST_CLIENT_SECRET=${ANILIST_CLIENT_SECRET}
 ANILIST_REDIRECT_URI=${ANILIST_REDIRECT_URI}
+ADMIN_PASSWORD=${ADMIN_PASSWORD || 'admin'}
 `;
         fs.writeFileSync(path.join(__dirname, '.env'), envContent);
 
