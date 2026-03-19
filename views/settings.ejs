@@ -1,0 +1,91 @@
+<%- include('partials/header', { currentPath: '/settings', successMsg: locals.successMsg, errorMsg: locals.errorMsg }) %>
+
+<div class="card">
+    <h2>Environment Settings</h2>
+    <p>Edit the settings used in the <code>.env</code> file. Saving these will overwrite the file and restart the application.</p>
+
+    <div id="settingsAlert" style="display: none; padding: 10px; margin-bottom: 15px; border-radius: 4px;"></div>
+
+    <form id="settingsForm">
+        <div class="form-group">
+            <label for="PORT">PORT</label>
+            <input type="number" id="PORT" name="PORT" value="<%= env.PORT %>" required>
+        </div>
+
+        <div class="form-group">
+            <label for="SESSION_SECRET">SESSION_SECRET</label>
+            <input type="text" id="SESSION_SECRET" name="SESSION_SECRET" value="<%= env.SESSION_SECRET %>" required>
+        </div>
+
+        <div class="form-group">
+            <label for="ANILIST_CLIENT_ID">ANILIST_CLIENT_ID</label>
+            <input type="text" id="ANILIST_CLIENT_ID" name="ANILIST_CLIENT_ID" value="<%= env.ANILIST_CLIENT_ID %>" required>
+        </div>
+
+        <div class="form-group">
+            <label for="ANILIST_CLIENT_SECRET">ANILIST_CLIENT_SECRET</label>
+            <input type="text" id="ANILIST_CLIENT_SECRET" name="ANILIST_CLIENT_SECRET" value="<%= env.ANILIST_CLIENT_SECRET %>" required>
+        </div>
+
+        <div class="form-group">
+            <label for="ANILIST_REDIRECT_URI">ANILIST_REDIRECT_URI</label>
+            <input type="text" id="ANILIST_REDIRECT_URI" name="ANILIST_REDIRECT_URI" value="<%= env.ANILIST_REDIRECT_URI %>" required>
+        </div>
+
+        <button type="submit" id="saveSettingsBtn" class="btn">Save & Restart App</button>
+    </form>
+</div>
+
+<script>
+    document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const btn = document.getElementById('saveSettingsBtn');
+        const alertBox = document.getElementById('settingsAlert');
+
+        btn.disabled = true;
+        btn.classList.add('btn-disabled');
+        btn.textContent = 'Saving...';
+        alertBox.style.display = 'none';
+
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData.entries());
+
+        try {
+            const response = await fetch('/api/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                alertBox.className = 'success';
+                alertBox.textContent = 'Settings saved! The application is restarting. Please wait a few seconds and refresh the page.';
+                alertBox.style.display = 'block';
+
+                // Keep button disabled during restart
+                btn.textContent = 'Restarting...';
+            } else {
+                alertBox.className = 'error';
+                alertBox.textContent = result.error || 'Failed to save settings.';
+                alertBox.style.display = 'block';
+                btn.disabled = false;
+                btn.classList.remove('btn-disabled');
+                btn.textContent = 'Save & Restart App';
+            }
+        } catch (err) {
+            alertBox.className = 'error';
+            alertBox.textContent = 'Network error occurred.';
+            alertBox.style.display = 'block';
+            btn.disabled = false;
+            btn.classList.remove('btn-disabled');
+            btn.textContent = 'Save & Restart App';
+        }
+    });
+</script>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,212 @@
+<%- include('partials/header', { currentPath: '/', successMsg: locals.successMsg, errorMsg: locals.errorMsg }) %>
+
+<div class="card">
+    <h2>Search Anime</h2>
+    <div style="display: flex; gap: 10px;">
+        <input type="text" id="searchInput" placeholder="Enter anime title..." style="flex-grow: 1; padding: 8px;">
+        <button id="searchBtn" class="btn" style="padding: 8px 15px;">Search</button>
+    </div>
+    <div id="searchLoader" class="loader">Searching...</div>
+    <div id="searchResults" class="search-results"></div>
+</div>
+
+<div id="syncSection" class="sync-section">
+    <h3>Sync Selected Anime</h3>
+    <p id="selectedAnimeTitle" style="font-weight: bold;"></p>
+    <input type="hidden" id="selectedAnimeId">
+
+    <div class="card" style="background: white;">
+        <h4>Select Users to Sync:</h4>
+        <div id="progressLoader" class="loader" style="display: none; margin-bottom: 10px;">Fetching user progress...</div>
+        <% if (users && users.length > 0) { %>
+            <ul class="user-list">
+                <% users.forEach(user => { %>
+                    <li>
+                        <label>
+                            <input type="checkbox" name="selectedUsers" value="<%= user.id %>" checked>
+                            <span class="user-name-label" data-user-id="<%= user.id %>" data-original-name="<%= user.name %>"><%= user.name %></span>
+                        </label>
+                    </li>
+                <% }) %>
+            </ul>
+        <% } else { %>
+            <p>No users connected yet. Go to the Users tab to connect an account.</p>
+        <% } %>
+    </div>
+
+    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
+        <label for="episodeInput">Episode watched:</label>
+        <input type="number" id="episodeInput" min="1" value="1" style="padding: 5px; width: 60px;">
+    </div>
+
+    <button id="syncBtn" class="btn">Sync to Selected Users</button>
+    <div id="syncLoader" class="loader" style="margin-top: 10px;">Syncing...</div>
+    <div id="syncResult" style="margin-top: 10px;"></div>
+</div>
+
+<script>
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const searchLoader = document.getElementById('searchLoader');
+    const searchResults = document.getElementById('searchResults');
+
+    const syncSection = document.getElementById('syncSection');
+    const selectedAnimeTitle = document.getElementById('selectedAnimeTitle');
+    const selectedAnimeIdInput = document.getElementById('selectedAnimeId');
+
+    const progressLoader = document.getElementById('progressLoader');
+    const userLabels = document.querySelectorAll('.user-name-label');
+
+    const episodeInput = document.getElementById('episodeInput');
+    const syncBtn = document.getElementById('syncBtn');
+    const syncLoader = document.getElementById('syncLoader');
+    const syncResult = document.getElementById('syncResult');
+
+    // Search Anime
+    searchBtn.addEventListener('click', async () => {
+        const query = searchInput.value.trim();
+        if (!query) return;
+
+        searchLoader.style.display = 'block';
+        searchResults.innerHTML = '';
+        syncSection.style.display = 'none';
+
+        try {
+            const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+            const animeList = await response.json();
+
+            if (animeList.length === 0) {
+                searchResults.innerHTML = '<p>No anime found.</p>';
+            } else {
+                animeList.forEach(anime => {
+                    const title = anime.title.english || anime.title.romaji;
+                    const div = document.createElement('div');
+                    div.className = 'anime-card';
+                    div.innerHTML = `
+                        <img src="${anime.coverImage.large}" alt="${title}">
+                        <div style="margin-top: 10px; font-weight: bold;">${title}</div>
+                    `;
+
+                    div.addEventListener('click', async () => {
+                        // Deselect others
+                        document.querySelectorAll('.anime-card').forEach(c => c.classList.remove('selected'));
+                        div.classList.add('selected');
+
+                        // Show Sync Section
+                        selectedAnimeIdInput.value = anime.id;
+                        const totalEpisodes = anime.episodes ? anime.episodes : 'Unknown';
+                        selectedAnimeTitle.textContent = `${title} (Total: ${totalEpisodes} episodes)`;
+                        syncSection.style.display = 'block';
+                        syncResult.innerHTML = ''; // clear previous results
+                        syncSection.scrollIntoView({ behavior: 'smooth' });
+
+                        // Fetch progress for each user
+                        userLabels.forEach(label => {
+                            label.textContent = label.getAttribute('data-original-name');
+                        });
+
+                        const allCheckboxes = document.querySelectorAll('input[name="selectedUsers"]');
+                        const userIds = Array.from(allCheckboxes).map(cb => cb.value);
+
+                        if (userIds.length > 0) {
+                            progressLoader.style.display = 'block';
+                            try {
+                                const progressRes = await fetch(`/api/progress?animeId=${anime.id}&userIds=${userIds.join(',')}`);
+                                const progressData = await progressRes.json();
+
+                                if (progressData.results) {
+                                    progressData.results.forEach(userProgress => {
+                                        const label = document.querySelector(`.user-name-label[data-user-id="${userProgress.userId}"]`);
+                                        if (label) {
+                                            const originalName = label.getAttribute('data-original-name');
+                                            if (userProgress.error) {
+                                                label.textContent = `${originalName} (Error: ${userProgress.error})`;
+                                            } else {
+                                                label.textContent = `${originalName} (Current: Episode ${userProgress.progress}/${totalEpisodes})`;
+                                            }
+                                        }
+                                    });
+                                }
+                            } catch (err) {
+                                console.error('Failed to fetch user progress', err);
+                            } finally {
+                                progressLoader.style.display = 'none';
+                            }
+                        }
+                    });
+
+                    searchResults.appendChild(div);
+                });
+            }
+        } catch (err) {
+            searchResults.innerHTML = '<p class="error">Error fetching results.</p>';
+        } finally {
+            searchLoader.style.display = 'none';
+        }
+    });
+
+    // Allow pressing Enter to search
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            searchBtn.click();
+        }
+    });
+
+    // Sync Anime
+    syncBtn.addEventListener('click', async () => {
+        const animeId = selectedAnimeIdInput.value;
+        const episode = episodeInput.value;
+
+        // Get selected users
+        const selectedCheckboxes = document.querySelectorAll('input[name="selectedUsers"]:checked');
+        const userIds = Array.from(selectedCheckboxes).map(cb => parseInt(cb.value));
+
+        if (userIds.length === 0) {
+            alert('Please select at least one user to sync.');
+            return;
+        }
+
+        if (!animeId || !episode) {
+            alert('Please select an anime and enter an episode.');
+            return;
+        }
+
+        syncLoader.style.display = 'block';
+        syncResult.innerHTML = '';
+        syncBtn.disabled = true;
+
+        try {
+            const response = await fetch('/api/sync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ animeId, episode, userIds })
+            });
+
+            const data = await response.json();
+
+            if (data.error) {
+                syncResult.innerHTML = `<p class="error">${data.error}</p>`;
+            } else {
+                let resultHtml = '<ul>';
+                data.results.forEach(res => {
+                    if (res.success) {
+                        resultHtml += `<li><span style="color: green;">✔</span> ${res.name}: Synced episode ${episode}</li>`;
+                    } else {
+                        resultHtml += `<li><span style="color: red;">✖</span> ${res.name}: Failed (${res.error})</li>`;
+                    }
+                });
+                resultHtml += '</ul>';
+                syncResult.innerHTML = resultHtml;
+            }
+        } catch (err) {
+            syncResult.innerHTML = '<p class="error">An error occurred during sync.</p>';
+        } finally {
+            syncLoader.style.display = 'none';
+            syncBtn.disabled = false;
+        }
+    });
+</script>
+
+<%- include('partials/footer') %>

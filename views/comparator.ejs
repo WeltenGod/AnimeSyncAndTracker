@@ -1,0 +1,167 @@
+<%- include('partials/header', { currentPath: '/comparator', successMsg: null, errorMsg: null }) %>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = {
+        darkMode: 'class',
+        theme: {
+            extend: {
+                colors: {
+                    indigo: {
+                        100: '#e0e7ff',
+                        200: '#c7d2fe',
+                        300: '#a5b4fc',
+                        400: '#818cf8',
+                        500: '#6366f1',
+                        600: '#4f46e5',
+                        700: '#4338ca',
+                        800: '#3730a3',
+                        900: '#312e81',
+                    }
+                }
+            }
+        }
+    }
+</script>
+<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+<div class="card" x-data="comparatorApp()">
+    <div class="flex justify-between items-center mb-6 border-b pb-4">
+        <h2 class="text-2xl font-bold text-gray-800">Anime/Manga List Comparator</h2>
+    </div>
+
+    <!-- Type Selection -->
+    <div class="flex space-x-4 mb-6">
+        <button
+            class="px-4 py-2 rounded-md font-medium transition-colors"
+            :class="type === 'anime' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+            @click="type = 'anime'">
+            Anime
+        </button>
+        <button
+            class="px-4 py-2 rounded-md font-medium transition-colors"
+            :class="type === 'manga' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+            @click="type = 'manga'">
+            Manga
+        </button>
+    </div>
+
+    <!-- User Input List -->
+    <div class="space-y-4 mb-6">
+        <template x-for="(user, index) in users" :key="index">
+            <div class="flex items-center space-x-4 bg-gray-50 p-4 rounded-md border border-gray-200">
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1" x-text="`Username ${index + 1}`"></label>
+                    <input
+                        type="text"
+                        class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 px-3 py-2 border"
+                        placeholder="Enter username"
+                        x-model="user.username"
+                    />
+                </div>
+                <div class="w-32">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Platform</label>
+                    <select
+                        class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 px-3 py-2 border"
+                        x-model="user.platform">
+                        <option value="mal">MyAnimeList</option>
+                        <option value="anilist">AniList</option>
+                    </select>
+                </div>
+                <div class="pt-6" x-show="users.length > 2">
+                    <button
+                        @click="removeUser(index)"
+                        class="text-red-600 hover:text-red-800 focus:outline-none"
+                        title="Remove user">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex justify-between mb-8">
+        <button
+            @click="addUser()"
+            class="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            + Add User
+        </button>
+        <button
+            @click="compare()"
+            :disabled="loading"
+            class="px-6 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+            <span x-show="!loading">Find Common Entries</span>
+            <span x-show="loading">Comparing...</span>
+        </button>
+    </div>
+
+    <!-- Error Message -->
+    <div x-show="error" class="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+        <div class="flex">
+            <div class="ml-3">
+                <p class="text-sm text-red-700" x-text="error"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div x-show="searched && !loading">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-gray-800" x-text="`Common Entries (${commonItems.length})`"></h2>
+            <button
+                x-show="commonItems.length > 0"
+                @click="exportCsv()"
+                class="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                Export to CSV
+            </button>
+        </div>
+
+        <div x-show="commonItems.length === 0" class="text-gray-500 text-center py-8">
+            No common entries found.
+        </div>
+
+        <div x-show="commonItems.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+            <template x-for="(item, idx) in commonItems" :key="idx">
+                <a :href="item.url" target="_blank" rel="noopener noreferrer" class="group flex flex-col bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all">
+                    <div class="bg-gray-200 relative" style="height: 200px;">
+                        <template x-if="item.image">
+                            <img :src="item.image" :alt="item.title" class="object-cover w-full h-full" />
+                        </template>
+                        <template x-if="!item.image">
+                            <div class="flex items-center justify-center w-full h-full text-gray-400">No Image</div>
+                        </template>
+                    </div>
+                    <div class="p-3 flex-1 flex flex-col">
+                        <h3 class="text-sm font-medium text-gray-900 group-hover:text-indigo-600 line-clamp-2 mb-2" x-text="item.title"></h3>
+                        <div class="mt-auto flex flex-wrap gap-2">
+                            <template x-for="(u, uIdx) in item.users" :key="uIdx">
+                                <div class="relative group/tooltip flex items-center" :title="`${u.username}: ${u.status === 'completed' ? 'Completed' : (type === 'manga' ? 'Ch ' : 'Ep ') + u.progress}`">
+                                    <template x-if="u.avatar">
+                                        <img :src="u.avatar" :alt="u.username" class="w-8 h-8 rounded-full border border-gray-300 object-cover" />
+                                    </template>
+                                    <template x-if="!u.avatar">
+                                        <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-800 text-xs font-bold border border-indigo-200" x-text="u.username.charAt(0).toUpperCase()"></div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </a>
+            </template>
+        </div>
+    </div>
+</div>
+
+<script src="/comparator.js"></script>
+
+<style>
+/* Reset global styles from main app that interfere with tailwind locally */
+.card h2 { margin-top: 0; }
+.card input, .card select { margin-bottom: 0; box-sizing: border-box; }
+.card button { margin-top: 0; }
+</style>
+
+<%- include('partials/footer') %>

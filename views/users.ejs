@@ -1,0 +1,26 @@
+<%- include('partials/header', { currentPath: '/users', successMsg: locals.successMsg, errorMsg: locals.errorMsg }) %>
+
+<div class="card">
+    <h2>Connect Accounts</h2>
+    <p>Connect your AniList account so it can be synced.</p>
+    <ul>
+        <li><a href="/auth/anilist" class="btn" style="text-decoration: none; display: inline-block; margin-top: 10px;">Connect AniList</a></li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>Connected Users</h2>
+    <% if (users && users.length > 0) { %>
+        <ul class="user-list">
+            <% users.forEach(user => { %>
+                <li style="padding: 10px; background: #f9f9f9; border: 1px solid #eee; border-radius: 4px;">
+                    <strong><%= user.name %></strong>
+                </li>
+            <% }) %>
+        </ul>
+    <% } else { %>
+        <p>No users connected yet.</p>
+    <% } %>
+</div>
+
+<%- include('partials/footer') %>
