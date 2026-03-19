@@ -4,7 +4,11 @@
     <h2>Connect Accounts</h2>
     <p>Connect your AniList account so it can be synced.</p>
     <ul>
-        <li><a href="/auth/anilist" class="btn" style="text-decoration: none; display: inline-block; margin-top: 10px;">Connect AniList</a></li>
+        <% if (locals.user && locals.user.loggedIn) { %>
+            <li><a href="/auth/anilist" class="btn" style="text-decoration: none; display: inline-block; margin-top: 10px;">Connect AniList</a></li>
+        <% } else { %>
+            <li><em>Please <a href="/login">login</a> to connect an account.</em></li>
+        <% } %>
     </ul>
 </div>
 

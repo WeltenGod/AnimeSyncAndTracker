@@ -41,6 +41,11 @@
         <a href="/users" class="<%= currentPath === '/users' ? 'active' : '' %>">Users</a>
         <a href="/comparator" class="<%= currentPath === '/comparator' ? 'active' : '' %>">Comparator</a>
         <a href="/settings" class="<%= currentPath === '/settings' ? 'active' : '' %>">Settings</a>
+        <% if (locals.user && locals.user.loggedIn) { %>
+            <a href="/logout" style="float: right;">Logout</a>
+        <% } else { %>
+            <a href="/login" class="<%= currentPath === '/login' ? 'active' : '' %>" style="float: right;">Login</a>
+        <% } %>
     </nav>
 
     <% if (successMsg) { %>

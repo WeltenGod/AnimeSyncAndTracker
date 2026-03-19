@@ -39,7 +39,11 @@
         <input type="number" id="episodeInput" min="1" value="1" style="padding: 5px; width: 60px;">
     </div>
 
-    <button id="syncBtn" class="btn">Sync to Selected Users</button>
+    <% if (locals.user && locals.user.loggedIn) { %>
+        <button id="syncBtn" class="btn">Sync to Selected Users</button>
+    <% } else { %>
+        <p><em>Please <a href="/login">login</a> to sync.</em></p>
+    <% } %>
     <div id="syncLoader" class="loader" style="margin-top: 10px;">Syncing...</div>
     <div id="syncResult" style="margin-top: 10px;"></div>
 </div>
@@ -153,6 +157,7 @@
     });
 
     // Sync Anime
+    if (syncBtn) {
     syncBtn.addEventListener('click', async () => {
         const animeId = selectedAnimeIdInput.value;
         const episode = episodeInput.value;
@@ -207,6 +212,7 @@
             syncBtn.disabled = false;
         }
     });
+    }
 </script>
 
 <%- include('partials/footer') %>

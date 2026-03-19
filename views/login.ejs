@@ -1,0 +1,16 @@
+<%- include('partials/header', { currentPath: '/login', successMsg: locals.successMsg, errorMsg: locals.errorMsg }) %>
+
+<div class="card">
+    <h2>Admin Login</h2>
+    <p>Please log in to make changes or sync accounts.</p>
+
+    <form action="/login" method="POST">
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        <button type="submit" class="btn">Login</button>
+    </form>
+</div>
+
+<%- include('partials/footer') %>
